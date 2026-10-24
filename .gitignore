@@ -1,0 +1,16 @@
+# Python virtual environments & bytecode
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary audio & cache files
+*.mp3
+*.wav
+*.tmp
+kindle_narrator_*
+
+# Snapshots archive folder
+_snapshots/
+.idea/
+.vscode/

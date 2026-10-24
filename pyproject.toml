@@ -1,0 +1,16 @@
+[project]
+name = "kindle-voice-narrator"
+version = "1.0.0"
+description = "Kindle Screen Reader and Voice Narrator with Afro-European Neural Voices, Speed Adjustment, Auto Page Turning, and Smart Notes"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "customtkinter>=5.2.0",
+    "pillow>=10.0.0",
+    "edge-tts>=6.1.10",
+    "pygame>=2.5.0",
+    "pyautogui>=0.9.54",
+    "winocr>=0.0.1",
+    "pynput>=1.7.6",
+    "requests>=2.31.0",
+]
