@@ -1545,12 +1545,19 @@ class KindleNarratorApp(ctk.CTk):
     def _next_page(self):
         self.tts.stop()
         self.screen_overlay.hide()
+        self.reading_in_progress = True
         self.set_status("Turning to next page...", "#00E5FF")
         try:
             delay = float(self.entry_delay.get().strip())
-            self.page_turner.turn_delay = delay
+            self.page_turner.turn_delay = max(0.5, delay)
         except Exception:
             pass
+
+        # Synchronize targets from OCR engine if not set on PageTurner
+        if self.ocr.target_hwnd and not self.page_turner.target_hwnd:
+            self.page_turner.set_target_window(self.ocr.target_hwnd, self.ocr.target_window_title or "")
+        if self.ocr.selected_region and not self.page_turner.click_target_region:
+            self.page_turner.set_target_region(self.ocr.selected_region)
 
         def worker():
             self.page_turner.turn_next_page()
@@ -1561,12 +1568,19 @@ class KindleNarratorApp(ctk.CTk):
     def _prev_page(self):
         self.tts.stop()
         self.screen_overlay.hide()
+        self.reading_in_progress = True
         self.set_status("Turning to previous page...", "#00E5FF")
         try:
             delay = float(self.entry_delay.get().strip())
-            self.page_turner.turn_delay = delay
+            self.page_turner.turn_delay = max(0.5, delay)
         except Exception:
             pass
+
+        # Synchronize targets from OCR engine if not set on PageTurner
+        if self.ocr.target_hwnd and not self.page_turner.target_hwnd:
+            self.page_turner.set_target_window(self.ocr.target_hwnd, self.ocr.target_window_title or "")
+        if self.ocr.selected_region and not self.page_turner.click_target_region:
+            self.page_turner.set_target_region(self.ocr.selected_region)
 
         def worker():
             self.page_turner.turn_prev_page()
@@ -1869,9 +1883,10 @@ class KindleNarratorApp(ctk.CTk):
     def _on_tts_page_finished(self):
         """Called when all sentences on current page finish reading."""
         self.screen_overlay.hide()
-        if self.auto_turn_enabled.get() and self.reading_in_progress:
+        if self.auto_turn_enabled.get():
+            self.reading_in_progress = True
             self.after(0, lambda: self.set_status("📄 Page finished. Auto-turning to next page...", "#00C853"))
-            self.after(500, self._next_page)
+            self.after(400, self._next_page)
         else:
             self.reading_in_progress = False
             self.after(0, lambda: self.set_status("✅ Finished reading page.", "#00C853"))

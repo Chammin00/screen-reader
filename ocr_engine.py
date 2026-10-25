@@ -194,6 +194,85 @@ class OCREngine:
         img, _ = self.capture_screen_with_offset()
         return img
 
+    @staticmethod
+    def is_page_number_text(text: str) -> bool:
+        """Determines if a text string is a page number, location, progress indicator, or reading time."""
+        s = text.strip()
+        if not s:
+            return False
+
+        patterns = [
+            # Standalone digits, with optional punctuation/brackets/dashes: e.g. '142', '- 142 -', '[142]', '(142)', '• 142 •', '142.'
+            r"^[\(\[\-\—\–\~•·\|\<\>]?\s*\d{1,5}\s*[\)\]\-\—\–\~•·\|\<\>\.]?$",
+            # Page prefixes: 'Page 142', 'page 142 of 300', 'Page 142 / 300', 'p. 142', 'pp. 142-143', 'pg 142'
+            r"^(?:page|pg|p|p\.|pp\.)\s*[\.:]?\s*\d{1,5}(?:\s*(?:of|/|\||•|-|–|—)\s*\d{1,5})?.*$",
+            # Page fractions: '142 of 300', '142 / 300', '142 | 300'
+            r"^\d{1,5}\s*(?:of|/|\|)\s*\d{1,5}.*$",
+            # Roman numerals: 'iv', 'xii', 'xvi', '- iv -'
+            r"^[\(\[\-\—\–\~•·]?\s*[ivxlcdmIVXLCDM]{1,8}\s*[\)\]\-\—\–\~•·\.]?$",
+            # Kindle location, percentage, and time remaining:
+            r"^loc(?:ation)?\s*[\.:]?\s*\d+.*$",
+            r"^\d{1,3}\s*%.*$",
+            r".*\b\d+\s+mins?\s+left\b.*",
+            r".*\b\d+\s+hours?\s+left\b.*",
+            r"^kindle\s*$",
+            r"^amazon\s*$",
+            r"^cloud\s+reader\s*$",
+        ]
+        return any(re.match(pat, s, re.IGNORECASE) for pat in patterns)
+
+    def is_running_header_or_title(
+        self,
+        pl: typing.Dict[str, typing.Any],
+        idx: int,
+        all_lines: typing.List[typing.Dict[str, typing.Any]],
+        img_h: float
+    ) -> bool:
+        """Identifies running book/chapter titles, author headers, and page numbers at the top of the screen."""
+        text = pl["text"].strip()
+        if not text:
+            return False
+
+        # Any page number text in top 20% is a running header
+        if pl["y"] < (img_h * 0.20) and self.is_page_number_text(text):
+            return True
+
+        # Page number combined with title in top margin (e.g. '42 | The Art of War' or 'Chapter 3 - 42')
+        if pl["y"] < (img_h * 0.20):
+            combo_pattern = r"^\s*(?:\d{1,5}\s*[-–—|•·\~]\s*.+|.+\s*[-–—|•·\~]\s*\d{1,5}|\d{1,5}\s+[A-Za-z\s]{2,40}|[A-Za-z\s]{2,40}\s+\d{1,5})\s*$"
+            if re.match(combo_pattern, text):
+                return True
+
+        # Check top 14% of the screen
+        if pl["y"] < (img_h * 0.14):
+            # Never drop genuine questions or prompts
+            if text.endswith("?") or re.match(r"^\s*(?:Q\s*[\.:]|Question\s*\d*[\.:]|Prob(?:lem)?\s*\d*[\.:]|Exercise\s*\d*[\.:]|Item\s*\d*[\.:])", text, re.IGNORECASE):
+                return False
+
+            # Known window title match
+            if self.target_window_title:
+                clean_win = re.sub(r"[^a-zA-Z0-9\s]", "", self.target_window_title.lower())
+                clean_line = re.sub(r"[^a-zA-Z0-9\s]", "", text.lower())
+                if clean_line and len(clean_line) >= 4 and clean_line in clean_win:
+                    return True
+
+            # Standard running header format: short line separated by vertical gap from body
+            v_gap = 999.0
+            if idx + 1 < len(all_lines):
+                next_pl = all_lines[idx + 1]
+                v_gap = next_pl["y"] - pl["bottom"]
+
+            if len(text) <= 65:
+                # If isolated by vertical gap
+                if v_gap >= (pl["h"] * 0.65) or idx == 0:
+                    # All-caps, title-cased short phrase, or chapter header
+                    if text.isupper() or len(text.split()) <= 6:
+                        return True
+                    if re.match(r"^\s*(?:CHAPTER|PART|SECTION|UNIT|LESSON|BOOK|ACT)\s+[\dIVXLCDM]+.*$", text, re.IGNORECASE):
+                        return True
+
+        return False
+
     def clean_text(self, raw_text: str) -> str:
         """
         Cleans extracted OCR text by:
@@ -207,30 +286,15 @@ class OCREngine:
         lines = raw_text.splitlines()
         cleaned_lines = []
 
-        # Regex patterns for Kindle headers/footers
-        footer_patterns = [
-            r"^\s*page\s+\d+(\s+of\s+\d+)?(\s*[\u2022•\-\|].*)?$",
-            r"^\s*loc\s+\d+(\s+of\s+\d+)?(\s*[\u2022•\-\|].*)?$",
-            r"^\s*\d+%.*$",
-            r".*\b\d+\s+mins?\s+left\b.*",
-            r".*\b\d+\s+hours?\s+left\b.*",
-            r"^\s*kindle\s*$",
-            r"^\s*\d+\s*$",  # Lone page numbers
-        ]
-
         for line in lines:
             trimmed = line.strip()
             if not trimmed:
                 continue
 
-            is_noise = False
-            for pat in footer_patterns:
-                if re.match(pat, trimmed, re.IGNORECASE):
-                    is_noise = True
-                    break
+            if self.is_page_number_text(trimmed):
+                continue
 
-            if not is_noise:
-                cleaned_lines.append(trimmed)
+            cleaned_lines.append(trimmed)
 
         if not cleaned_lines:
             return ""
@@ -570,17 +634,6 @@ class OCREngine:
         parsed_lines.sort(key=lambda item: item["y"])
 
         # 2. Filtering noise, running headers, and running footers
-        footer_patterns = [
-            r"^\s*page\s+\d+(\s+of\s+\d+)?(\s*[\u2022•\-\|].*)?$",
-            r"^\s*loc\s+\d+(\s+of\s+\d+)?(\s*[\u2022•\-\|].*)?$",
-            r"^\s*\d+%.*$",
-            r".*\b\d+\s+mins?\s+left\b.*",
-            r".*\b\d+\s+hours?\s+left\b.*",
-            r"^\s*kindle\s*$",
-            r"^\s*\d+\s*$",  # Lone page numbers
-        ]
-
-        # Phrases from the application's own UI or connection wizard to never read
         ui_noise_phrases = [
             "handshake", "permissions", "voice narrator", "kindle voice", "speed & volume",
             "voice profile", "follow-along spotlight", "live page transcript", "notes & summary",
@@ -592,8 +645,6 @@ class OCREngine:
         ]
 
         filtered_lines = []
-        top_header_threshold = img_h * 0.08
-        bottom_footer_threshold = img_h * 0.88
 
         for idx, pl in enumerate(parsed_lines):
             lower_text = pl["text"].lower()
@@ -603,40 +654,20 @@ class OCREngine:
                 continue
 
             if filter_headers:
-                # Footer filter: ONLY drop bottom lines if they actually match footer noise patterns
-                if pl["bottom"] > bottom_footer_threshold:
-                    is_footer_noise = any(re.match(pat, pl["text"], re.IGNORECASE) for pat in footer_patterns)
-                    if is_footer_noise:
-                        continue  # Skip Kindle progress/battery/page footer
+                # 1. Skip any page number anywhere on the page (top, bottom, or inline)
+                if self.is_page_number_text(pl["text"]):
+                    continue
 
-                # Header filter:
-                # Do NOT drop top line if user cropped a specific region (self.selected_region is set)
-                if self.selected_region is None and pl["y"] < top_header_threshold:
-                    # Check if line is isolated by a noticeable vertical gap from the body text
-                    is_isolated = False
-                    if idx + 1 < len(parsed_lines):
-                        next_pl = parsed_lines[idx + 1]
-                        v_gap = next_pl["y"] - pl["bottom"]
-                        if v_gap > (pl["h"] * 1.8):
-                            is_isolated = True
+                # 2. Skip running titles, book names, and author headers at the top of the screen
+                if self.is_running_header_or_title(pl, idx, parsed_lines, img_h):
+                    continue
 
-                    # Only filter if isolated AND either matches title/chapter or is short title under 45 chars
-                    if is_isolated:
-                        is_title_match = False
-                        if self.target_window_title:
-                            # If words in line match window title words
-                            clean_win = re.sub(r'[^a-zA-Z0-9\s]', '', self.target_window_title.lower())
-                            clean_line = re.sub(r'[^a-zA-Z0-9\s]', '', lower_text)
-                            if clean_line and clean_line in clean_win:
-                                is_title_match = True
-
-                        is_chap_header = bool(re.match(r'^\s*(chapter\s+\d+|part\s+\d+|contents|preface)\s*$', lower_text))
-                        if is_title_match or is_chap_header or len(pl["text"]) < 45:
-                            continue  # Skip redundant isolated running header
-
-            # Check footer patterns anywhere (e.g., lone page numbers)
-            if any(re.match(pat, pl["text"], re.IGNORECASE) for pat in footer_patterns):
-                continue
+                # 3. Skip footer / progress noise in the bottom margin (bottom 16% of page)
+                if pl["bottom"] > (img_h * 0.84):
+                    if len(pl["text"]) < 45 and any(c.isdigit() or c in "%" for c in pl["text"]):
+                        continue
+                    if any(w in lower_text for w in ["page", "loc", "location", "mins left", "hours left", "kindle", "amazon"]):
+                        continue
 
             filtered_lines.append(pl)
 
