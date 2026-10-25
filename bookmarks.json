@@ -10,21 +10,21 @@
   },
   "_LATEST_": {
     "book_title": "Kindle",
-    "sentence_index": 11,
-    "sentence_text": "define the patterns, and the antivirus software scans files for matching patterns. When the software",
-    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\npeople just click 0K without paying attention to alerts and can inadvertently override the antivirus\nsoftware.\nAntivirus software detects viruses using either signature-based detection or heuristic-based\ndetection.\nRemember This!\nAntivir",
+    "sentence_index": 5,
+    "sentence_text": "or MySQL database. Different databases format SQL statements slightly differently, but once the attacker",
+    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\nthe Customers table, giving the attacker access to names, credit card data, and more. The last line\ncomments out the second single quote to prevent a SQL error.\nSuppose the application doesn't include error-handling routines. In that cas",
     "region": null,
-    "timestamp": 1792941753.5217316,
-    "time_str": "2026-10-25 10:22:33"
+    "timestamp": 1792958397.4559324,
+    "time_str": "2026-10-25 14:59:57"
   },
   "Kindle": {
     "book_title": "Kindle",
-    "sentence_index": 11,
-    "sentence_text": "define the patterns, and the antivirus software scans files for matching patterns. When the software",
-    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\npeople just click 0K without paying attention to alerts and can inadvertently override the antivirus\nsoftware.\nAntivirus software detects viruses using either signature-based detection or heuristic-based\ndetection.\nRemember This!\nAntivir",
+    "sentence_index": 5,
+    "sentence_text": "or MySQL database. Different databases format SQL statements slightly differently, but once the attacker",
+    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\nthe Customers table, giving the attacker access to names, credit card data, and more. The last line\ncomments out the second single quote to prevent a SQL error.\nSuppose the application doesn't include error-handling routines. In that cas",
     "region": null,
-    "timestamp": 1792941753.5217316,
-    "time_str": "2026-10-25 10:22:33"
+    "timestamp": 1792958397.4559324,
+    "time_str": "2026-10-25 14:59:57"
   },
   "Kindle Voice Narrator & AI Study Companion": {
     "book_title": "Kindle Voice Narrator & AI Study Companion",
