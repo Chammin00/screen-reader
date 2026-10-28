@@ -611,6 +611,9 @@ class KindleNarratorApp(ctk.CTk):
         # Build UI layout
         self._build_ui()
 
+        # Auto-link to running Kindle window on launch
+        self.after(350, self._auto_link_kindle_on_launch)
+
     def _build_ui(self):
         # Master grid layout
         self.grid_columnconfigure(0, weight=1)
@@ -1399,6 +1402,20 @@ class KindleNarratorApp(ctk.CTk):
 
         RegionSelectorDialog(self, on_selected)
 
+    def _auto_link_kindle_on_launch(self):
+        """Silently auto-discovers and connects to the active Kindle window on startup."""
+        win = self.ocr.find_kindle_window()
+        if win:
+            self.perform_app_handshake(win._hWnd, win.title, win.left, win.top, win.width, win.height, auto_read=False)
+            self.set_status(f"🤝 Auto-linked to '{win.title[:30]}' on launch. Ready to read!", "#00C853")
+        else:
+            latest_bm = self.bookmark_mgr.get_bookmark_for_book("")
+            if latest_bm:
+                b_title = latest_bm.get("book_title", "Kindle")
+                s_text = latest_bm.get("sentence_text", "")[:35]
+                self.lbl_bm_status.configure(text=f"📌 Saved: '{s_text}...'", text_color="#00E5FF")
+                self.set_status(f"Ready. Last read: '{b_title}'. Click Play or Resume Bookmark.", "gray80")
+
     def _auto_detect_kindle(self):
         win = self.ocr.find_kindle_window()
         if win:
@@ -1412,6 +1429,12 @@ class KindleNarratorApp(ctk.CTk):
 
     def _capture_and_read(self):
         """Captures OCR from region/screen, splits sentences/lines, updates UI, and starts TTS."""
+        # Auto-link Kindle window if not yet linked
+        if self.ocr.target_hwnd is None and self.ocr.selected_region is None:
+            win = self.ocr.find_kindle_window()
+            if win:
+                self.perform_app_handshake(win._hWnd, win.title, win.left, win.top, win.width, win.height, auto_read=False)
+
         self.set_status("📸 Capturing Kindle page and running OCR...", "#FFD600")
         self.reading_in_progress = True
         flow_mode, filter_hdrs, col_mode = self._get_ocr_params()
@@ -1617,12 +1640,20 @@ class KindleNarratorApp(ctk.CTk):
 
     def _resume_from_bookmark(self):
         """Resumes reading from the last saved bookmark."""
+        if self.ocr.target_hwnd is None and self.ocr.selected_region is None:
+            win = self.ocr.find_kindle_window()
+            if win:
+                self.perform_app_handshake(win._hWnd, win.title, win.left, win.top, win.width, win.height, auto_read=False)
+
         title = self.ocr.target_window_title or ""
         bm = self.bookmark_mgr.get_bookmark_for_book(title)
         if not bm:
+            bm = self.bookmark_mgr.get_bookmark_for_book("")
+
+        if not bm:
             messagebox.showinfo(
                 "No Bookmark Found",
-                "No bookmark found for this book yet.\nStart reading to automatically bookmark your position!"
+                "No bookmark found yet.\nStart reading to automatically bookmark your position!"
             )
             return
 

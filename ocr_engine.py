@@ -72,6 +72,30 @@ class StyleClassifier:
         return "BODY"
 
 
+class WindowInfo:
+    """Lightweight window object adapter compatible with pygetwindow interfaces."""
+    def __init__(self, hwnd: int, title: str, left: int, top: int, width: int, height: int):
+        self._hWnd = hwnd
+        self.hwnd = hwnd
+        self.title = title
+        self.left = left
+        self.top = top
+        self.width = width
+        self.height = height
+
+    def activate(self):
+        try:
+            SW_RESTORE = 9
+            if user32.IsIconic(self._hWnd):
+                user32.ShowWindow(self._hWnd, SW_RESTORE)
+            user32.keybd_event(0x12, 0, 0, 0)
+            user32.SetForegroundWindow(self._hWnd)
+            user32.keybd_event(0x12, 0, 2, 0)
+            user32.BringWindowToTop(self._hWnd)
+        except Exception:
+            pass
+
+
 class OCREngine:
     def __init__(self, language: str = "en"):
         self.language = language
@@ -111,15 +135,47 @@ class OCREngine:
         return (x, y, max(10, w), max(10, h))
 
     def find_kindle_window(self) -> typing.Optional[typing.Any]:
-        """Find Kindle desktop app or Kindle browser tab window."""
-        if not gw:
-            return None
-        all_windows = gw.getAllWindows()
-        for w in all_windows:
-            title = w.title.lower()
-            if "kindle" in title or "cloud reader" in title or "amazon" in title:
-                if w.width > 200 and w.height > 200:
-                    return w
+        """Find Kindle desktop app or Kindle browser tab window using pygetwindow and Win32 EnumWindows."""
+        target_keywords = ["kindle", "cloud reader", "read.amazon", "amazon.com", "security+", "sy0-701"]
+
+        # 1. Try pygetwindow
+        if gw:
+            try:
+                for w in gw.getAllWindows():
+                    t_lower = w.title.lower()
+                    if any(k in t_lower for k in target_keywords):
+                        if w.width > 200 and w.height > 200:
+                            return w
+            except Exception:
+                pass
+
+        # 2. Direct Win32 EnumWindows fallback
+        try:
+            found = []
+            def _enum_proc(hwnd, lParam):
+                if user32.IsWindowVisible(hwnd):
+                    length = user32.GetWindowTextLengthW(hwnd)
+                    if length > 0:
+                        buff = ctypes.create_unicode_buffer(length + 1)
+                        user32.GetWindowTextW(hwnd, buff, length + 1)
+                        t = buff.value
+                        t_lower = t.lower()
+                        if any(k in t_lower for k in target_keywords):
+                            rect = wintypes.RECT()
+                            user32.GetWindowRect(hwnd, ctypes.byref(rect))
+                            rw = rect.right - rect.left
+                            rh = rect.bottom - rect.top
+                            if rw > 200 and rh > 200:
+                                found.append(WindowInfo(hwnd, t, rect.left, rect.top, rw, rh))
+                return True
+
+            ENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
+            user32.EnumWindows(ENUMPROC(_enum_proc), 0)
+            if found:
+                return found[0]
+        except Exception:
+            pass
+
         return None
 
     def _capture_gdi(self, x: int, y: int, w: int, h: int) -> Image.Image:
@@ -201,23 +257,33 @@ class OCREngine:
         if not s:
             return False
 
+        # Legitimate content sentences are NEVER page numbers
+        if len(s.split()) > 5:
+            return False
+
+        # Protect bullet points, list items, questions, and common content with words
+        if s.startswith(("•", "-", "*", "·", "–", "—")) and any(c.isalpha() for c in s):
+            return False
+        if s.endswith("?"):
+            return False
+
         patterns = [
             # Standalone digits, with optional punctuation/brackets/dashes: e.g. '142', '- 142 -', '[142]', '(142)', '• 142 •', '142.'
             r"^[\(\[\-\—\–\~•·\|\<\>]?\s*\d{1,5}\s*[\)\]\-\—\–\~•·\|\<\>\.]?$",
             # Page prefixes: 'Page 142', 'page 142 of 300', 'Page 142 / 300', 'p. 142', 'pp. 142-143', 'pg 142'
-            r"^(?:page|pg|p|p\.|pp\.)\s*[\.:]?\s*\d{1,5}(?:\s*(?:of|/|\||•|-|–|—)\s*\d{1,5})?.*$",
+            r"^(?:page|pg|p|p\.|pp\.)\s*[\.:]?\s*\d{1,5}(?:\s*(?:of|/|\||•|-|–|—)\s*\d{1,5})?$",
             # Page fractions: '142 of 300', '142 / 300', '142 | 300'
-            r"^\d{1,5}\s*(?:of|/|\|)\s*\d{1,5}.*$",
+            r"^\d{1,5}\s*(?:of|/|\|)\s*\d{1,5}$",
             # Roman numerals: 'iv', 'xii', 'xvi', '- iv -'
             r"^[\(\[\-\—\–\~•·]?\s*[ivxlcdmIVXLCDM]{1,8}\s*[\)\]\-\—\–\~•·\.]?$",
-            # Kindle location, percentage, and time remaining:
-            r"^loc(?:ation)?\s*[\.:]?\s*\d+.*$",
-            r"^\d{1,3}\s*%.*$",
-            r".*\b\d+\s+mins?\s+left\b.*",
-            r".*\b\d+\s+hours?\s+left\b.*",
-            r"^kindle\s*$",
-            r"^amazon\s*$",
-            r"^cloud\s+reader\s*$",
+            # Kindle location, percentage, and time remaining (strictly standalone):
+            r"^loc(?:ation)?\s*[\.:]?\s*\d+$",
+            r"^\d{1,3}\s*%$",
+            r"^\d+\s+mins?\s+left(?:\s+in\s+book)?$",
+            r"^\d+\s+hours?\s+left(?:\s+in\s+book)?$",
+            r"^kindle(?:\s+for\s+pc)?$",
+            r"^amazon(?:\s+kindle)?$",
+            r"^cloud\s+reader$",
         ]
         return any(re.match(pat, s, re.IGNORECASE) for pat in patterns)
 
@@ -233,43 +299,35 @@ class OCREngine:
         if not text:
             return False
 
-        # Any page number text in top 20% is a running header
-        if pl["y"] < (img_h * 0.20) and self.is_page_number_text(text):
+        # NEVER filter out legitimate questions, prompts, bullets, or numbered list items
+        if text.endswith("?") or re.match(r"^\s*(?:Q\s*[\.:]|Question\s*\d*[\.:]|Prob(?:lem)?\s*\d*[\.:]|Exercise\s*\d*[\.:]|Item\s*\d*[\.:])", text, re.IGNORECASE):
+            return False
+        if text.startswith(("•", "*", "·", "–", "—")) or re.match(r"^\s*\d{1,3}[\.\)]\s+", text):
+            return False
+
+        # Any page number text in top 15% is a running header
+        if pl["y"] < (img_h * 0.15) and self.is_page_number_text(text):
             return True
 
         # Page number combined with title in top margin (e.g. '42 | The Art of War' or 'Chapter 3 - 42')
-        if pl["y"] < (img_h * 0.20):
-            combo_pattern = r"^\s*(?:\d{1,5}\s*[-–—|•·\~]\s*.+|.+\s*[-–—|•·\~]\s*\d{1,5}|\d{1,5}\s+[A-Za-z\s]{2,40}|[A-Za-z\s]{2,40}\s+\d{1,5})\s*$"
-            if re.match(combo_pattern, text):
+        if pl["y"] < (img_h * 0.12):
+            combo_pattern = r"^\s*(?:\d{1,5}\s*[-–—|•·\~]\s*.+|.+\s*[-–—|•·\~]\s*\d{1,5})\s*$"
+            if re.match(combo_pattern, text) and len(text) <= 50:
                 return True
 
-        # Check top 14% of the screen
-        if pl["y"] < (img_h * 0.14):
-            # Never drop genuine questions or prompts
-            if text.endswith("?") or re.match(r"^\s*(?:Q\s*[\.:]|Question\s*\d*[\.:]|Prob(?:lem)?\s*\d*[\.:]|Exercise\s*\d*[\.:]|Item\s*\d*[\.:])", text, re.IGNORECASE):
-                return False
-
+        # Check top 10% of the screen ONLY
+        if pl["y"] < (img_h * 0.10):
             # Known window title match
             if self.target_window_title:
                 clean_win = re.sub(r"[^a-zA-Z0-9\s]", "", self.target_window_title.lower())
                 clean_line = re.sub(r"[^a-zA-Z0-9\s]", "", text.lower())
-                if clean_line and len(clean_line) >= 4 and clean_line in clean_win:
+                if clean_line and len(clean_line) >= 6 and clean_line in clean_win:
                     return True
 
-            # Standard running header format: short line separated by vertical gap from body
-            v_gap = 999.0
-            if idx + 1 < len(all_lines):
-                next_pl = all_lines[idx + 1]
-                v_gap = next_pl["y"] - pl["bottom"]
-
-            if len(text) <= 65:
-                # If isolated by vertical gap
-                if v_gap >= (pl["h"] * 0.65) or idx == 0:
-                    # All-caps, title-cased short phrase, or chapter header
-                    if text.isupper() or len(text.split()) <= 6:
-                        return True
-                    if re.match(r"^\s*(?:CHAPTER|PART|SECTION|UNIT|LESSON|BOOK|ACT)\s+[\dIVXLCDM]+.*$", text, re.IGNORECASE):
-                        return True
+            # Explicit Chapter/Part marker in the extreme top margin (short header)
+            if re.match(r"^\s*(?:CHAPTER|PART|SECTION|UNIT|LESSON|BOOK|ACT)\s+[\dIVXLCDM]+.*$", text, re.IGNORECASE):
+                if len(text.split()) <= 6:
+                    return True
 
         return False
 
@@ -662,11 +720,11 @@ class OCREngine:
                 if self.is_running_header_or_title(pl, idx, parsed_lines, img_h):
                     continue
 
-                # 3. Skip footer / progress noise in the bottom margin (bottom 16% of page)
-                if pl["bottom"] > (img_h * 0.84):
-                    if len(pl["text"]) < 45 and any(c.isdigit() or c in "%" for c in pl["text"]):
+                # 3. Skip footer / progress noise in the bottom margin (bottom 10% of page)
+                if pl["bottom"] > (img_h * 0.90):
+                    if self.is_page_number_text(pl["text"]):
                         continue
-                    if any(w in lower_text for w in ["page", "loc", "location", "mins left", "hours left", "kindle", "amazon"]):
+                    if re.match(r"^\s*(?:page\s+\d+|\d+\s*%\s*|loc(?:ation)?\s*[\.:]?\s*\d+|\d+\s+mins?\s+left|\d+\s+hours?\s+left)\s*$", pl["text"], re.IGNORECASE):
                         continue
 
             filtered_lines.append(pl)
