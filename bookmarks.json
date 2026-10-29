@@ -10,21 +10,21 @@
   },
   "_LATEST_": {
     "book_title": "Kindle",
-    "sentence_index": 5,
-    "sentence_text": "or MySQL database. Different databases format SQL statements slightly differently, but once the attacker",
-    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\nthe Customers table, giving the attacker access to names, credit card data, and more. The last line\ncomments out the second single quote to prevent a SQL error.\nSuppose the application doesn't include error-handling routines. In that cas",
+    "sentence_index": 25,
+    "sentence_text": "roles, security policies, or risk assessments. This can help maintain a secure",
+    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\nmanaging various security-related tasks. As you prepare for the SecuritY+ exam, you\nshould be familiar with the following use cases:\n• User provisioning: Automating the process of creating, updating, and\nmaintained effciently and securel",
     "region": null,
-    "timestamp": 1792958397.4559324,
-    "time_str": "2026-10-25 14:59:57"
+    "timestamp": 1793210393.666003,
+    "time_str": "2026-10-28 12:59:53"
   },
   "Kindle": {
     "book_title": "Kindle",
-    "sentence_index": 5,
-    "sentence_text": "or MySQL database. Different databases format SQL statements slightly differently, but once the attacker",
-    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\nthe Customers table, giving the attacker access to names, credit card data, and more. The last line\ncomments out the second single quote to prevent a SQL error.\nSuppose the application doesn't include error-handling routines. In that cas",
+    "sentence_index": 25,
+    "sentence_text": "roles, security policies, or risk assessments. This can help maintain a secure",
+    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\nmanaging various security-related tasks. As you prepare for the SecuritY+ exam, you\nshould be familiar with the following use cases:\n• User provisioning: Automating the process of creating, updating, and\nmaintained effciently and securel",
     "region": null,
-    "timestamp": 1792958397.4559324,
-    "time_str": "2026-10-25 14:59:57"
+    "timestamp": 1793210393.666003,
+    "time_str": "2026-10-28 12:59:53"
   },
   "Kindle Voice Narrator & AI Study Companion": {
     "book_title": "Kindle Voice Narrator & AI Study Companion",
