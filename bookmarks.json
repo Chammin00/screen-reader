@@ -10,21 +10,21 @@
   },
   "_LATEST_": {
     "book_title": "Kindle",
-    "sentence_index": 25,
-    "sentence_text": "roles, security policies, or risk assessments. This can help maintain a secure",
-    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\nmanaging various security-related tasks. As you prepare for the SecuritY+ exam, you\nshould be familiar with the following use cases:\n• User provisioning: Automating the process of creating, updating, and\nmaintained effciently and securel",
+    "sentence_index": 9,
+    "sentence_text": "Security administrators often use a vulnerability scanner to identify which systems",
+    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\nfingerprinting. As a simple example, the TCP window size (the size of the\nreceive window in the first packet of a TCP session) is not fixed. Different operating\nsystems use different sizes. Some Linux versions use a size of 5,840\nbytes,",
     "region": null,
-    "timestamp": 1793210393.666003,
-    "time_str": "2026-10-28 12:59:53"
+    "timestamp": 1793293502.4973931,
+    "time_str": "2026-10-29 12:05:02"
   },
   "Kindle": {
     "book_title": "Kindle",
-    "sentence_index": 25,
-    "sentence_text": "roles, security policies, or risk assessments. This can help maintain a secure",
-    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\nmanaging various security-related tasks. As you prepare for the SecuritY+ exam, you\nshould be familiar with the following use cases:\n• User provisioning: Automating the process of creating, updating, and\nmaintained effciently and securel",
+    "sentence_index": 9,
+    "sentence_text": "Security administrators often use a vulnerability scanner to identify which systems",
+    "page_snippet": "CompTIA SecuritY+ Get Certified Get Ahead: SYO-701 Study Guide\nfingerprinting. As a simple example, the TCP window size (the size of the\nreceive window in the first packet of a TCP session) is not fixed. Different operating\nsystems use different sizes. Some Linux versions use a size of 5,840\nbytes,",
     "region": null,
-    "timestamp": 1793210393.666003,
-    "time_str": "2026-10-28 12:59:53"
+    "timestamp": 1793293502.4973931,
+    "time_str": "2026-10-29 12:05:02"
   },
   "Kindle Voice Narrator & AI Study Companion": {
     "book_title": "Kindle Voice Narrator & AI Study Companion",
